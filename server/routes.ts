@@ -84,7 +84,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/requests", isAuthenticated, async (req: any, res) => {
     try {
       const userId = (req.user as any).id;
-      const { bloodGroup, location, priority, unitsNeeded, notes, hospitalId } = req.body;
+      let { bloodGroup, location, priority, unitsNeeded, notes, hospitalId } = req.body;
+
+      if (!hospitalId && (req.user as any).role === "hospital") {
+        hospitalId = userId;
+      }
 
       if (!bloodGroup || !location || !hospitalId) {
         return res.status(400).json({ message: "Blood group, location, and hospital are required" });
@@ -100,19 +104,31 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         notes,
       });
 
-      // Broadcast Announcement
+      // Broadcast Announcement to matching donors
       try {
         await storage.createAnnouncement({
-          title: `URGENT: ${bloodGroup} Blood Needed`,
-          message: `A new request for ${bloodGroup} blood has been raised at ${location}. Please check active requests to help!`,
+          title: `URGENT: ${bloodGroup} Blood Needed (${priority.toUpperCase()})`,
+          message: `A new request for ${unitsNeeded} unit(s) of ${bloodGroup} blood has been raised at ${location}. Please check active requests to help!`,
           targetBloodGroup: bloodGroup, // Target matching donors
-          createdBy: userId, // Created by the requester (system essentially acting on their behalf)
+          createdBy: userId,
           type: "request_broadcast",
           relatedRequestId: request.id
         });
+
+        // Direct notification to the selected hospital / blood bank
+        if (hospitalId) {
+          const requester = await storage.getUser(userId);
+          await storage.createAnnouncement({
+            title: `🚨 Incoming Blood Request: ${unitsNeeded} Unit(s) of ${bloodGroup}`,
+            message: `Request received from ${requester?.name || 'Patient'} (${requester?.phone || 'No phone provided'}). Location: ${location}. Priority: ${priority.toUpperCase()}. Notes: ${notes || 'None'}.`,
+            targetUserId: hospitalId,
+            createdBy: userId,
+            type: "hospital_notification",
+            relatedRequestId: request.id
+          });
+        }
       } catch (annError) {
-        console.error("Failed to create broadcast announcement", annError);
-        // Don't fail the request request
+        console.error("Failed to create broadcast/hospital announcement", annError);
       }
 
       res.status(201).json(request);

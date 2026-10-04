@@ -288,14 +288,6 @@ function DonorSearch({ onOpenCreateDialog }: { onOpenCreateDialog: (initialData:
               key={donor.id}
               donor={donor}
               onRequestBlood={(donorId) => {
-                if (!user?.isVerified) {
-                  toast({
-                    title: "Verification Required",
-                    description: "Please wait for a hospital to verify your account.",
-                    variant: "destructive",
-                  });
-                  return;
-                }
                 onOpenCreateDialog({
                   bloodGroup: donor.bloodGroup as BloodGroup,
                   location: donor.location || "",
@@ -641,7 +633,12 @@ export default function Home() {
       await apiRequest("POST", "/api/requests", newRequest);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/requests", "my"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/requests", "incoming"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api", "requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api", "announcements"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/announcements"] });
       setIsCreateDialogOpen(false);
       setNewRequest({ bloodGroup: "", location: "", priority: "normal", unitsNeeded: 1, notes: "", hospitalId: "" });
       toast({ title: "Success", description: "Blood request created successfully." });
@@ -661,7 +658,12 @@ export default function Home() {
       await apiRequest("PATCH", `/api/requests/${requestId}/accept`, {});
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/requests", "my"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/requests", "incoming"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/requests", "completed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api", "requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api", "announcements"] });
       toast({ title: "Accepted", description: "You have accepted the blood request." });
     },
     onError: (error: Error) => {
@@ -688,6 +690,9 @@ export default function Home() {
       await apiRequest("PATCH", `/api/requests/${requestId}/cancel`, {});
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/requests", "my"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/requests", "incoming"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api", "requests"] });
       toast({ title: "Cancelled", description: "Request has been cancelled." });
     },
@@ -705,8 +710,14 @@ export default function Home() {
       await apiRequest("PATCH", `/api/requests/${requestId}/complete`, {});
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/requests", "my"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/requests", "incoming"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/requests", "completed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api", "requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api", "auth", "user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/auth", "user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api", "announcements"] });
       toast({ title: "Completed", description: "Donation marked as completed. Thank you!" });
     },
     onError: (error) => {
@@ -734,11 +745,16 @@ export default function Home() {
 
   const updateAvailabilityMutation = useMutation({
     mutationFn: async ({ value, field }: { value: boolean, field: "canDonate" | "availabilityStatus" }) => {
-      await apiRequest("PATCH", "/api/users/me", { [field]: value });
+      const res = await apiRequest("PATCH", "/api/users/me", { [field]: value });
+      return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (updatedUser) => {
+      queryClient.setQueryData(["/api", "auth", "user"], updatedUser);
       queryClient.invalidateQueries({ queryKey: ["/api", "auth", "user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/donors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/requests", "incoming"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/requests", "my"] });
+      toast({ title: "Status Updated", description: "Your availability status has been updated." });
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {

@@ -5,6 +5,7 @@ import express, { type Express, Request, Response, NextFunction, RequestHandler 
 import crypto from "crypto";
 import { promisify } from "util";
 import connectPg from "connect-pg-simple";
+import createMemoryStore from "memorystore";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -83,12 +84,11 @@ async function uploadFile(file: Express.Multer.File): Promise<string> {
 
 export function setupAuth(app: Express) {
     const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-    const pgStore = connectPg(session);
-    const sessionStore = new pgStore({
-        conString: process.env.DATABASE_URL,
-        createTableIfMissing: true,
-        ttl: sessionTtl,
-        tableName: "sessions",
+    let sessionStore: any;
+
+    const MemoryStore = createMemoryStore(session);
+    sessionStore = new MemoryStore({
+        checkPeriod: 86400000,
     });
 
     app.use(
@@ -165,8 +165,8 @@ export function setupAuth(app: Express) {
             const userData = {
                 ...result.data,
                 password: hashedPassword,
-                isVerified: false,
-                age: 18, // Default age or remove if not needed
+                isVerified: true,
+                age: 18,
             };
             console.log("Creating user with data:", JSON.stringify(userData, null, 2));
             const user = await storage.createUser(userData);

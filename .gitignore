@@ -4,3 +4,9 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+.meta-panel-trigger
+meta.bat
+meta
+.env
+uploads/*
+!uploads/.gitkeep
