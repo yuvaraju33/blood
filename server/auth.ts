@@ -86,10 +86,17 @@ export function setupAuth(app: Express) {
     const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
     let sessionStore: any;
 
+    // Trust proxy for Render/Heroku/Railway (behind reverse proxy)
+    if (process.env.NODE_ENV === "production") {
+        app.set("trust proxy", 1);
+    }
+
     const MemoryStore = createMemoryStore(session);
     sessionStore = new MemoryStore({
         checkPeriod: 86400000,
     });
+
+    const isProduction = process.env.NODE_ENV === "production";
 
     app.use(
         session({
@@ -97,8 +104,11 @@ export function setupAuth(app: Express) {
             resave: false,
             saveUninitialized: false,
             store: sessionStore,
+            proxy: isProduction,
             cookie: {
-                secure: process.env.NODE_ENV === "production",
+                secure: isProduction,
+                httpOnly: true,
+                sameSite: isProduction ? "none" : "lax",
                 maxAge: sessionTtl,
             },
         }),
