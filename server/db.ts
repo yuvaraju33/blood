@@ -5,14 +5,24 @@ import * as schema from "../shared/schema.js";
 
 const { Pool } = pg;
 
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
+let pool: pg.Pool | null = null;
+let db: ReturnType<typeof drizzle> | null = null;
+
+if (process.env.DATABASE_URL) {
+  try {
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+    });
+    db = drizzle(pool, { schema });
+    console.log("[db] PostgreSQL pool created successfully");
+  } catch (err) {
+    console.warn("[db] Failed to create PostgreSQL pool:", err);
+    pool = null;
+    db = null;
+  }
+} else {
+  console.warn("[db] DATABASE_URL not set, database features will use file storage fallback");
 }
 
-export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
-});
-export const db = drizzle(pool, { schema });
+export { pool, db };

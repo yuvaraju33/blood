@@ -5,8 +5,6 @@ import { rm, readFile } from "fs/promises";
 // server deps to bundle to reduce openat(2) syscalls
 // which helps cold start times
 const allowlist = [
-  "@google/generative-ai",
-  "@vercel/blob",
   "axios",
   "connect-pg-simple",
   "cors",
@@ -17,20 +15,15 @@ const allowlist = [
   "express",
   "express-rate-limit",
   "express-session",
-  "jsonwebtoken",
   "memoizee",
   "memorystore",
   "multer",
   "nanoid",
-  "nodemailer",
-  "openai",
   "passport",
   "passport-local",
   "pg",
-  "stripe",
   "uuid",
   "ws",
-  "xlsx",
   "zod",
   "zod-validation-error",
 ];
@@ -62,6 +55,8 @@ async function buildAll() {
     external: externals,
     logLevel: "info",
   });
+
+  console.log("build complete!");
 }
 
 buildAll().catch((err) => {

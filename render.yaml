@@ -9,8 +9,8 @@ services:
     name: blood-link
     runtime: node
     plan: free
-    buildCommand: npm run render-build && npm run db:push
-    startCommand: npm run start
+    buildCommand: npm install && npm run build
+    startCommand: node dist/index.cjs
     envVars:
       - key: DATABASE_URL
         fromDatabase:

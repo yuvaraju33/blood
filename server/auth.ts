@@ -4,19 +4,17 @@ import session from "express-session";
 import express, { type Express, Request, Response, NextFunction, RequestHandler } from "express";
 import crypto from "crypto";
 import { promisify } from "util";
-import connectPg from "connect-pg-simple";
 import createMemoryStore from "memorystore";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { storage } from "./storage.js";
 import { insertUserSchema, type User } from "../shared/schema.js";
-import { put } from "@vercel/blob";
 
 // Configure multer for PDF uploads
 const uploadDir = "uploads";
-if (!process.env.VERCEL && !fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir);
+if (!fs.existsSync(uploadDir)) {
+    try { fs.mkdirSync(uploadDir, { recursive: true }); } catch (e) { /* ignore */ }
 }
 
 const multerStorage = multer.memoryStorage();
@@ -65,21 +63,14 @@ const uploadImage = multer({
 });
 
 async function uploadFile(file: Express.Multer.File): Promise<string> {
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-        const blob = await put(`uploads/${Date.now()}-${file.originalname}`, file.buffer, { access: 'public' });
-        return blob.url;
-    } else {
-        if (process.env.VERCEL) {
-            throw new Error("Local file uploads are not supported on Vercel. Please configure BLOB_READ_WRITE_TOKEN.");
-        }
-        const filename = `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`;
-        const filePath = path.join(uploadDir, filename);
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir);
-        }
-        fs.writeFileSync(filePath, file.buffer);
-        return `/uploads/${filename}`;
+    // Save file locally on Render
+    const filename = `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`;
+    const filePath = path.join(uploadDir, filename);
+    if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
     }
+    fs.writeFileSync(filePath, file.buffer);
+    return `/uploads/${filename}`;
 }
 
 export function setupAuth(app: Express) {
@@ -108,7 +99,7 @@ export function setupAuth(app: Express) {
             cookie: {
                 secure: isProduction,
                 httpOnly: true,
-                sameSite: isProduction ? "none" : "lax",
+                sameSite: isProduction ? "none" as const : "lax" as const,
                 maxAge: sessionTtl,
             },
         }),

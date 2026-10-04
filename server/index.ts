@@ -82,20 +82,25 @@ export async function setupApp() {
   return app;
 }
 
-// Start the server (for Render, local dev, etc.)
+// Start the server
 (async () => {
-  await setupApp();
+  try {
+    await setupApp();
 
-  const port = parseInt(process.env.PORT || "5000", 10);
-  httpServer.listen(
-    {
-      port,
-      host: "0.0.0.0",
-    },
-    () => {
-      log(`serving on port ${port}`);
-    },
-  );
+    const port = parseInt(process.env.PORT || "5000", 10);
+    httpServer.listen(
+      {
+        port,
+        host: "0.0.0.0",
+      },
+      () => {
+        log(`serving on port ${port}`);
+      },
+    );
+  } catch (err) {
+    console.error("Failed to start server:", err);
+    process.exit(1);
+  }
 })();
 
 export { app, httpServer };

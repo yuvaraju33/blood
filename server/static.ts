@@ -5,15 +5,14 @@ import path from "path";
 export function serveStatic(app: Express) {
   const distPath = path.resolve(process.cwd(), "dist", "public");
   if (!fs.existsSync(distPath)) {
-    // In Vercel, static files are handled by the platform if configured in vercel.json.
-    // This server-side serving is a fallback or for other environments.
-    if (process.env.VERCEL) {
-      console.warn("Could not find dist/public, assuming static files are served by Vercel directly.");
-      return;
-    }
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
+    console.warn(
+      `[static] Could not find the build directory: ${distPath}, static files won't be served`,
     );
+    // Return a simple fallback instead of crashing
+    app.use("*", (_req, res) => {
+      res.status(503).json({ message: "Application is starting up, please try again shortly." });
+    });
+    return;
   }
 
   app.use(express.static(distPath));
